@@ -151,16 +151,57 @@
 
                 let totalWidth = 0;
                 let totalHeight = 0;
+                let drawParams = []; // 用來儲存每張圖片最終要畫上的寬高
 
-                // 1. 計算 Canvas 總尺寸
+                // 1. 計算縮放比例與 Canvas 總尺寸
                 if (direction === 'H') {
-                    // 橫向：寬度相加，高度取最大值
-                    totalWidth = images.reduce((sum, img) => sum + img.width, 0);
-                    totalHeight = Math.max(...images.map(img => img.height));
+                    // 橫向合併：依據高度判斷
+                    const minH = Math.min(...images.map(img => img.height));
+                    const maxH = Math.max(...images.map(img => img.height));
+                    
+                    // 若最大高度與最小高度比值大於 105% (1.05)，則啟用縮放
+                    const shouldScale = (maxH / minH) > 1.05;
+
+                    images.forEach(img => {
+                        let w = img.width;
+                        let h = img.height;
+                        
+                        // 若啟用縮放，且該圖片大於最小高度，則等比例縮小
+                        if (shouldScale && h > minH) {
+                            h = minH;
+                            w = Math.round(img.width * (minH / img.height));
+                        }
+                        
+                        drawParams.push({ img: img, width: w, height: h });
+                        totalWidth += w;
+                    });
+                    
+                    // Canvas 高度取計算後的最大高度（通常就是 minH）
+                    totalHeight = Math.max(...drawParams.map(p => p.height));
                 } else {
-                    // 縱向：高度相加，寬度取最大值
-                    totalWidth = Math.max(...images.map(img => img.width));
-                    totalHeight = images.reduce((sum, img) => sum + img.height, 0);
+                    // 縱向合併：依據寬度判斷
+                    const minW = Math.min(...images.map(img => img.width));
+                    const maxW = Math.max(...images.map(img => img.width));
+                    
+                    // 若最大寬度與最小寬度比值大於 105% (1.05)，則啟用縮放
+                    const shouldScale = (maxW / minW) > 1.05;
+
+                    images.forEach(img => {
+                        let w = img.width;
+                        let h = img.height;
+                        
+                        // 若啟用縮放，且該圖片大於最小寬度，則等比例縮小
+                        if (shouldScale && w > minW) {
+                            w = minW;
+                            h = Math.round(img.height * (minW / img.width));
+                        }
+                        
+                        drawParams.push({ img: img, width: w, height: h });
+                        totalHeight += h;
+                    });
+                    
+                    // Canvas 寬度取計算後的最大寬度（通常就是 minW）
+                    totalWidth = Math.max(...drawParams.map(p => p.width));
                 }
 
                 canvas.width = totalWidth;
@@ -172,16 +213,16 @@
                     ctx.fillRect(0, 0, canvas.width, canvas.height);
                 }
 
-                // 2. 依序將圖片畫上 Canvas
+                // 2. 依序將圖片依照計算後的尺寸畫上 Canvas
                 let currentX = 0;
                 let currentY = 0;
 
-                images.forEach(img => {
-                    ctx.drawImage(img, currentX, currentY);
+                drawParams.forEach(param => {
+                    ctx.drawImage(param.img, currentX, currentY, param.width, param.height);
                     if (direction === 'H') {
-                        currentX += img.width;
+                        currentX += param.width;
                     } else {
-                        currentY += img.height;
+                        currentY += param.height;
                     }
                 });
 
